@@ -24,10 +24,6 @@ const char* serverUrl = "https://iot-smart-tree-irrigation-and-monitoring.onrend
 #define SENSOR_DRY_VALUE 1023    // Analog reading when sensor is dry
 #define SENSOR_WET_VALUE 0       // Analog reading when sensor is wet
 
-// Sensor Calibration (adjust based on your sensors)
-#define SENSOR_DRY_VALUE 1023    // Analog reading when sensor is dry
-#define SENSOR_WET_VALUE 0       // Analog reading when sensor is wet
-
 // Timing Configuration (milliseconds)
 #define SENSOR_READ_INTERVAL 2000      // Read sensors every 2 seconds
 #define SERVER_UPDATE_INTERVAL 5000    // Send data to server every 5 seconds
@@ -40,10 +36,6 @@ const char* serverUrl = "https://iot-smart-tree-irrigation-and-monitoring.onrend
 #define SERVO_FIELD1_ANGLE 180  // Static angle for Field 1 (STATE1)
 #define SERVO_IDLE_ANGLE 90     // Center/idle position
 #define SERVO_ROTATION_STEP 2   // Degrees to move per update (smoother = smaller value)
-
-// ========================================
-// GLOBAL VARIABLES
-// ========================================
 
 // ========================================
 // GLOBAL VARIABLES
@@ -77,10 +69,6 @@ unsigned long lastServoUpdate = 0;
 // Connection retry counter
 int wifiReconnectAttempts = 0;
 const int MAX_WIFI_RECONNECT = 3;
-
-// ========================================
-// SETUP FUNCTION
-// ========================================
 
 // ========================================
 // SETUP FUNCTION
@@ -179,10 +167,6 @@ void loop() {
 // WIFI CONNECTION FUNCTION
 // ========================================
 
-// ========================================
-// WIFI CONNECTION FUNCTION
-// ========================================
-
 void connectToWiFi() {
   Serial.print("[WIFI] Connecting to: ");
   Serial.println(ssid);
@@ -220,10 +204,6 @@ void connectToWiFi() {
 // SENSOR READING FUNCTION
 // ========================================
 
-// ========================================
-// SENSOR READING FUNCTION
-// ========================================
-
 void readSensors() {
   // Read moisture sensor 1 (Analog - Field 1)
   int rawValue1 = analogRead(SENSOR1_PIN);
@@ -248,10 +228,6 @@ void readSensors() {
   Serial.println("%     │");
   Serial.println("└─────────────────────────────┘\n");
 }
-
-// ========================================
-// SEND DATA TO SERVER
-// ========================================
 
 // ========================================
 // SEND DATA TO SERVER
@@ -301,10 +277,6 @@ void sendSensorData() {
   http.end();
   Serial.println();
 }
-
-// ========================================
-// GET COMMANDS FROM SERVER
-// ========================================
 
 // ========================================
 // GET COMMANDS FROM SERVER
@@ -364,10 +336,6 @@ void getCommandsFromServer() {
   http.end();
   Serial.println();
 }
-
-// ========================================
-// EXECUTE COMMANDS (PUMP & SERVO)
-// ========================================
 
 // ========================================
 // EXECUTE COMMANDS (PUMP & SERVO)
