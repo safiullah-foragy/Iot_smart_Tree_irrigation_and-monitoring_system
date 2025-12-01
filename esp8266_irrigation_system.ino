@@ -8,8 +8,8 @@
 // ========================================
 
 // WiFi Credentials
-const char* ssid = "SOFI";
-const char* password = "12345678";
+const char* ssid = "TLE 512";
+const char* password = "TLE_Cse-19";
 
 // Server URL - Your Render.com deployment
 const char* serverUrl = "https://iot-smart-tree-irrigation-and-monitoring.onrender.com";

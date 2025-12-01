@@ -167,6 +167,16 @@
             color: white;
         }
 
+        .btn-servo-idle {
+            background: #9E9E9E;
+            color: white;
+        }
+
+        .btn-servo-active {
+            background: #4CAF50;
+            color: white;
+        }
+
         .btn-manual-start {
             background: #9C27B0;
             color: white;
@@ -348,6 +358,12 @@
                 <button class="btn btn-servo2" id="btnServo2" onclick="servoState2()" disabled>
                     State 2 (Rotating)
                 </button>
+                <button class="btn btn-servo-idle" id="btnServoIdle" onclick="servoIdle()" disabled>
+                    Servo Idle
+                </button>
+                <button class="btn btn-servo-active" id="btnServoActive" onclick="servoActive()" disabled>
+                    Servo Active
+                </button>
             </div>
         </div>
 
@@ -439,6 +455,8 @@
             document.getElementById('btnPumpOff').disabled = !manualControlEnabled;
             document.getElementById('btnServo1').disabled = !manualControlEnabled;
             document.getElementById('btnServo2').disabled = !manualControlEnabled;
+            document.getElementById('btnServoIdle').disabled = !manualControlEnabled;
+            document.getElementById('btnServoActive').disabled = !manualControlEnabled;
         }
 
         function showAlert(message, type = 'success') {
@@ -586,6 +604,42 @@
                 }
             } catch (error) {
                 showAlert('Error setting servo state 2', 'error');
+            }
+        }
+
+        async function servoIdle() {
+            try {
+                const response = await fetch(`${API_BASE}/api/servo/idle`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    updateStatus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error setting servo to idle', 'error');
+            }
+        }
+
+        async function servoActive() {
+            try {
+                const response = await fetch(`${API_BASE}/api/servo/active`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    updateStatus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error setting servo to active', 'error');
             }
         }
     </script>

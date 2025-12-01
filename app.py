@@ -99,6 +99,26 @@ def servo_state2():
         else:
             return jsonify({'status': 'error', 'message': 'Manual mode is not active'}), 403
 
+@app.route('/api/servo/idle', methods=['POST'])
+def servo_idle():
+    """Set servo to Idle position (only in manual mode)"""
+    with state_lock:
+        if system_state['manual_mode_active']:
+            system_state['servo_state'] = 'IDLE'
+            return jsonify({'status': 'success', 'message': 'Servo set to Idle (90° center)'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Manual mode is not active'}), 403
+
+@app.route('/api/servo/active', methods=['POST'])
+def servo_active():
+    """Activate servo (same as State 1 - only in manual mode)"""
+    with state_lock:
+        if system_state['manual_mode_active']:
+            system_state['servo_state'] = 'STATE1'
+            return jsonify({'status': 'success', 'message': 'Servo activated (180° right)'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Manual mode is not active'}), 403
+
 @app.route('/api/mode/manual/start', methods=['POST'])
 def start_manual_mode():
     """Activate manual control mode"""
