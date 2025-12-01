@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Tree Irrigation System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .sensor-value {
+            font-size: 3em;
+            font-weight: bold;
+            color: #764ba2;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .sensor-label {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-on {
+            background: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+        }
+
+        .status-off {
+            background: #f44336;
+        }
+
+        .status-idle {
+            background: #FFC107;
+        }
+
+        .status-text {
+            font-size: 1.2em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .control-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+
+        .control-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-pump-on {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-pump-off {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-servo1 {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-servo2 {
+            background: #FF9800;
+            color: white;
+        }
+
+        .btn-manual-start {
+            background: #9C27B0;
+            color: white;
+        }
+
+        .btn-manual-stop {
+            background: #607D8B;
+            color: white;
+        }
+
+        .btn-auto-start {
+            background: #00BCD4;
+            color: white;
+        }
+
+        .btn-auto-stop {
+            background: #795548;
+            color: white;
+        }
+
+        .mode-section {
+            margin-bottom: 30px;
+        }
+
+        .current-mode {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .last-update {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .moisture-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .moisture-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f44336 0%, #FFC107 50%, #4CAF50 100%);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌳 Smart Tree Irrigation System</h1>
+
+        <!-- Alert Messages -->
+        <div id="alertContainer"></div>
+
+        <!-- Current Mode Display -->
+        <div class="current-mode" id="currentMode">
+            Current Mode: MANUAL
+        </div>
+
+        <!-- Sensor Data Dashboard -->
+        <div class="dashboard">
+            <!-- Sensor 1 Card -->
+            <div class="card">
+                <h2>📊 Field 1 - Sensor 1</h2>
+                <div class="sensor-value" id="sensor1Value">0%</div>
+                <div class="moisture-bar">
+                    <div class="moisture-fill" id="sensor1Bar" style="width: 0%"></div>
+                </div>
+                <div class="sensor-label">Continuous Irrigation Field</div>
+            </div>
+
+            <!-- Sensor 2 Card -->
+            <div class="card">
+                <h2>📊 Field 2 - Sensor 2</h2>
+                <div class="sensor-value" id="sensor2Value">0%</div>
+                <div class="moisture-bar">
+                    <div class="moisture-fill" id="sensor2Bar" style="width: 0%"></div>
+                </div>
+                <div class="sensor-label">Rotating Irrigation Field</div>
+            </div>
+
+            <!-- Pump Status Card -->
+            <div class="card">
+                <h2>💧 Pump Status</h2>
+                <div class="status-text">
+                    <span class="status-indicator status-off" id="pumpIndicator"></span>
+                    <span id="pumpStatus">OFF</span>
+                </div>
+            </div>
+
+            <!-- Servo Status Card -->
+            <div class="card">
+                <h2>🔄 Servo Motor Status</h2>
+                <div class="status-text">
+                    <span class="status-indicator status-idle" id="servoIndicator"></span>
+                    <span id="servoStatus">IDLE</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode Control Section -->
+        <div class="control-section mode-section">
+            <h2>⚙️ Mode Control</h2>
+            <div class="button-grid">
+                <button class="btn btn-manual-start" id="btnManualStart" onclick="startManualMode()">
+                    Start Manual Mode
+                </button>
+                <button class="btn btn-manual-stop" id="btnManualStop" onclick="stopManualMode()" disabled>
+                    Stop Manual Mode
+                </button>
+                <button class="btn btn-auto-start" id="btnAutoStart" onclick="startAutoMode()">
+                    Start Auto Mode
+                </button>
+                <button class="btn btn-auto-stop" id="btnAutoStop" onclick="stopAutoMode()" disabled>
+                    Stop Auto Mode
+                </button>
+            </div>
+        </div>
+
+        <!-- Manual Control Section -->
+        <div class="control-section">
+            <h2>🎮 Manual Control (Active only in Manual Mode)</h2>
+            
+            <h3 style="color: #667eea; margin-bottom: 15px;">Pump Control</h3>
+            <div class="button-grid">
+                <button class="btn btn-pump-on" id="btnPumpOn" onclick="pumpOn()" disabled>
+                    Pump ON
+                </button>
+                <button class="btn btn-pump-off" id="btnPumpOff" onclick="pumpOff()" disabled>
+                    Pump OFF
+                </button>
+            </div>
+
+            <h3 style="color: #667eea; margin: 25px 0 15px 0;">Servo Motor Control</h3>
+            <div class="button-grid">
+                <button class="btn btn-servo1" id="btnServo1" onclick="servoState1()" disabled>
+                    State 1 (180° Static)
+                </button>
+                <button class="btn btn-servo2" id="btnServo2" onclick="servoState2()" disabled>
+                    State 2 (Rotating)
+                </button>
+            </div>
+        </div>
+
+        <div class="last-update" id="lastUpdate">Last Update: Never</div>
+    </div>
+
+    <script>
+        // API Base URL - Change this to your Render.com URL after deployment
+        const API_BASE = window.location.origin;
+        
+        let currentMode = 'MANUAL';
+        let manualActive = true;
+        let autoActive = false;
+
+        // Update status every 2 seconds
+        setInterval(updateStatus, 2000);
+        
+        // Initial update
+        updateStatus();
+
+        async function updateStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/api/status`);
+                const data = await response.json();
+                
+                // Update sensor values
+                document.getElementById('sensor1Value').textContent = data.sensor1_moisture + '%';
+                document.getElementById('sensor2Value').textContent = data.sensor2_moisture + '%';
+                
+                // Update moisture bars
+                document.getElementById('sensor1Bar').style.width = data.sensor1_moisture + '%';
+                document.getElementById('sensor2Bar').style.width = data.sensor2_moisture + '%';
+                
+                // Update pump status
+                const pumpIndicator = document.getElementById('pumpIndicator');
+                const pumpStatus = document.getElementById('pumpStatus');
+                if (data.pump_status === 'ON') {
+                    pumpIndicator.className = 'status-indicator status-on';
+                    pumpStatus.textContent = 'ON';
+                } else {
+                    pumpIndicator.className = 'status-indicator status-off';
+                    pumpStatus.textContent = 'OFF';
+                }
+                
+                // Update servo status
+                const servoIndicator = document.getElementById('servoIndicator');
+                const servoStatus = document.getElementById('servoStatus');
+                if (data.servo_state === 'STATE1') {
+                    servoIndicator.className = 'status-indicator status-on';
+                    servoStatus.textContent = 'STATE 1 (180° Right)';
+                } else if (data.servo_state === 'STATE2') {
+                    servoIndicator.className = 'status-indicator status-on';
+                    servoStatus.textContent = 'STATE 2 (Rotating)';
+                } else {
+                    servoIndicator.className = 'status-indicator status-idle';
+                    servoStatus.textContent = 'IDLE';
+                }
+                
+                // Update mode
+                currentMode = data.control_mode;
+                manualActive = data.manual_mode_active;
+                autoActive = data.auto_mode_active;
+                
+                document.getElementById('currentMode').textContent = `Current Mode: ${currentMode}`;
+                
+                // Update button states
+                updateButtonStates();
+                
+                // Update last update time
+                const lastUpdate = new Date(data.last_update);
+                document.getElementById('lastUpdate').textContent = 
+                    `Last Update: ${lastUpdate.toLocaleString()}`;
+                
+            } catch (error) {
+                console.error('Error updating status:', error);
+            }
+        }
+
+        function updateButtonStates() {
+            // Mode control buttons
+            document.getElementById('btnManualStart').disabled = manualActive;
+            document.getElementById('btnManualStop').disabled = !manualActive;
+            document.getElementById('btnAutoStart').disabled = autoActive;
+            document.getElementById('btnAutoStop').disabled = !autoActive;
+            
+            // Manual control buttons - only enabled when manual mode is active
+            const manualControlEnabled = manualActive;
+            document.getElementById('btnPumpOn').disabled = !manualControlEnabled;
+            document.getElementById('btnPumpOff').disabled = !manualControlEnabled;
+            document.getElementById('btnServo1').disabled = !manualControlEnabled;
+            document.getElementById('btnServo2').disabled = !manualControlEnabled;
+        }
+
+        function showAlert(message, type = 'success') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alertContainer.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
+        }
+
+        async function startManualMode() {
+            try {
+                const response = await fetch(`${API_BASE}/api/mode/manual/start`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    updateStatus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error starting manual mode', 'error');
+            }
+        }
+
+        async function stopManualMode() {
+            try {
+                const response = await fetch(`${API_BASE}/api/mode/manual/stop`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                showAlert(data.message, 'success');
+                updateStatus();
+            } catch (error) {
+                showAlert('Error stopping manual mode', 'error');
+            }
+        }
+
+        async function startAutoMode() {
+            try {
+                const response = await fetch(`${API_BASE}/api/mode/auto/start`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    updateStatus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error starting auto mode', 'error');
+            }
+        }
+
+        async function stopAutoMode() {
+            try {
+                const response = await fetch(`${API_BASE}/api/mode/auto/stop`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                showAlert(data.message, 'success');
+                updateStatus();
+            } catch (error) {
+                showAlert('Error stopping auto mode', 'error');
+            }
+        }
+
+        async function pumpOn() {
+            try {
+                const response = await fetch(`${API_BASE}/api/pump/on`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    updateStatus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error turning pump on', 'error');
+            }
+        }
+
+        async function pumpOff() {
+            try {
+                const response = await fetch(`${API_BASE}/api/pump/off`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    updateStatus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error turning pump off', 'error');
+            }
+        }
+
+        async function servoState1() {
+            try {
+                const response = await fetch(`${API_BASE}/api/servo/state1`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    updateStatus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error setting servo state 1', 'error');
+            }
+        }
+
+        async function servoState2() {
+            try {
+                const response = await fetch(`${API_BASE}/api/servo/state2`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    updateStatus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error setting servo state 2', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
