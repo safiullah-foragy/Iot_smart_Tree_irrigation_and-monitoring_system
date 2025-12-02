@@ -20,7 +20,10 @@ system_state = {
     'auto_mode_active': False,
     'manual_mode_active': True,
     'field1_active': False,
-    'field2_active': False
+    'field2_active': False,
+    'fire_detected': False,  # Fire detection status
+    'fire_relay_status': 'OFF',  # Fire pump relay status
+    'buzzer_status': 'OFF'  # Buzzer alarm status
 }
 
 # ESP8266 connection timeout (seconds)
@@ -62,12 +65,16 @@ def receive_sensor_data():
         with state_lock:
             system_state['sensor1_moisture'] = data.get('sensor1', 0)
             system_state['sensor2_moisture'] = data.get('sensor2', 0)
+            system_state['fire_detected'] = data.get('fire_detected', False)
             system_state['last_update'] = datetime.now().isoformat()
             system_state['last_esp_update'] = datetime.now()  # Update ESP connection timestamp
             system_state['esp_connected'] = True  # Mark as connected
         
-        # If auto mode is active, process the logic
-        if system_state['auto_mode_active']:
+        # FIRE EMERGENCY - Overrides all other modes
+        if system_state['fire_detected']:
+            handle_fire_emergency()
+        # If auto mode is active and no fire, process irrigation logic
+        elif system_state['auto_mode_active']:
             auto_control_logic()
         
         return jsonify({'status': 'success', 'message': 'Sensor data received'})
@@ -227,6 +234,19 @@ def auto_control_logic():
             system_state['pump_status'] = 'OFF'
             system_state['servo_state'] = 'IDLE'
             system_state['field2_active'] = False
+
+def handle_fire_emergency():
+    """
+    Fire emergency protocol - Overrides all other modes.
+    Activates fire suppression systems automatically.
+    """
+    with state_lock:
+        # Fire detected - activate all fire suppression systems
+        system_state['fire_relay_status'] = 'ON'  # Fire pump ON
+        system_state['pump_status'] = 'ON'  # Main pump also ON
+        system_state['servo_state'] = 'STATE2'  # Servo rotating for wide coverage
+        system_state['buzzer_status'] = 'ON'  # Buzzer alarm ON
+        system_state['control_mode'] = 'FIRE_EMERGENCY'  # Override mode
 
 @app.route('/api/esp_commands', methods=['GET'])
 def get_esp_commands():

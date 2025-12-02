@@ -19,6 +19,9 @@ const char* serverUrl = "https://iot-smart-tree-irrigation-and-monitoring.onrend
 #define SENSOR2_PIN D0      // Digital pin for moisture sensor 2 (Field 2)
 #define PUMP_PIN D1         // Relay pin for water pump control
 #define SERVO_PIN D2        // PWM pin for servo motor control
+#define FIRE_RELAY_PIN D3   // Relay pin for fire pump control
+#define FLAME_SENSOR_PIN D4 // Digital pin for flame sensor input
+#define BUZZER_PIN D5       // Digital pin for buzzer alarm output
 
 // Sensor Calibration (adjust based on your sensors)
 #define SENSOR_DRY_VALUE 1023    // Analog reading when sensor is dry
@@ -50,6 +53,7 @@ WiFiClientSecure wifiClient;
 // Sensor data
 int sensor1Value = 0;
 int sensor2Value = 0;
+bool fireDetected = false;
 
 // Command states
 String pumpCommand = "OFF";
@@ -87,7 +91,13 @@ void setup() {
   pinMode(SENSOR1_PIN, INPUT);
   pinMode(SENSOR2_PIN, INPUT);
   pinMode(PUMP_PIN, OUTPUT);
-  digitalWrite(PUMP_PIN, LOW);  // Ensure pump is OFF at startup
+  pinMode(FIRE_RELAY_PIN, OUTPUT);
+  pinMode(FLAME_SENSOR_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  
+  digitalWrite(PUMP_PIN, LOW);        // Ensure irrigation pump is OFF at startup
+  digitalWrite(FIRE_RELAY_PIN, LOW);  // Ensure fire pump is OFF at startup
+  digitalWrite(BUZZER_PIN, LOW);      // Ensure buzzer is OFF at startup
   
   Serial.println("[INIT] Pins configured");
   
@@ -149,8 +159,16 @@ void loop() {
     getCommandsFromServer();
   }
   
-  // Execute received commands (pump and servo control)
-  executeCommands();
+  // FIRE EMERGENCY OVERRIDE - Takes precedence over all other commands
+  if (fireDetected) {
+    handleFireEmergency();
+  } else {
+    // Normal operation - execute received commands (pump and servo control)
+    executeCommands();
+    // Ensure fire systems are OFF when no fire
+    digitalWrite(FIRE_RELAY_PIN, LOW);
+    digitalWrite(BUZZER_PIN, LOW);
+  }
   
   // Handle continuous servo rotation for STATE2 with proper timing
   if (servoRotating && (currentMillis - lastServoUpdate >= SERVO_UPDATE_INTERVAL)) {
@@ -229,6 +247,9 @@ void readSensors() {
   sensor2Value = map(highCount, 10, 0, 0, 100);  // Inverted: all HIGH=dry=0%, all LOW=wet=100%
   sensor2Value = constrain(sensor2Value, 0, 100);
   
+  // Read flame sensor (Digital - Active LOW: LOW = Fire detected)
+  fireDetected = (digitalRead(FLAME_SENSOR_PIN) == LOW);
+  
   // Display sensor readings with raw values for debugging
   Serial.println("┌─────────────────────────────────────┐");
   Serial.println("│       SENSOR READINGS               │");
@@ -243,6 +264,9 @@ void readSensors() {
   Serial.print("% (HIGH: ");
   Serial.print(highCount);
   Serial.println("/10) │");
+  Serial.print("│ Fire Detected: ");
+  Serial.print(fireDetected ? "YES ⚠️" : "NO ✓");
+  Serial.println("      │");
   Serial.println("└─────────────────────────────────────┘\n");
 }
 
@@ -267,6 +291,7 @@ void sendSensorData() {
   StaticJsonDocument<200> doc;
   doc["sensor1"] = sensor1Value;
   doc["sensor2"] = sensor2Value;
+  doc["fire_detected"] = fireDetected;
   
   String jsonString;
   serializeJson(doc, jsonString);
@@ -401,6 +426,34 @@ void updateServoRotation() {
   }
   
   servoMotor.write(servoAngle);
+}
+
+// ========================================
+// FIRE EMERGENCY HANDLER
+// ========================================
+
+void handleFireEmergency() {
+  // FIRE DETECTED - Emergency protocol activated!
+  Serial.println("\n🚨🚨🚨 FIRE EMERGENCY DETECTED! 🚨🚨🚨");
+  
+  // 1. Turn ON fire pump relay (D3)
+  digitalWrite(FIRE_RELAY_PIN, HIGH);
+  Serial.println("[FIRE] Fire pump relay ACTIVATED");
+  
+  // 2. Turn ON buzzer alarm (D5)
+  digitalWrite(BUZZER_PIN, HIGH);
+  Serial.println("[FIRE] Buzzer alarm ACTIVATED");
+  
+  // 3. Set servo to STATE2 (rotating) for wide coverage
+  servoCommand = "STATE2";
+  servoRotating = true;
+  Serial.println("[FIRE] Servo set to STATE2 (rotating)");
+  
+  // 4. Also turn ON main irrigation pump for maximum water output
+  digitalWrite(PUMP_PIN, HIGH);
+  Serial.println("[FIRE] Main pump ACTIVATED");
+  
+  Serial.println("[FIRE] All fire suppression systems ACTIVE\n");
 }
 
 // ========================================

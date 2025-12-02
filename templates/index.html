@@ -318,14 +318,119 @@
         .offline-warning.show {
             display: block;
         }
+
+        /* Fire Emergency Alert Styles */
+        .fire-emergency-alert {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #ff0000, #ff6b00);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(255, 0, 0, 0.5);
+            z-index: 10000;
+            text-align: center;
+            min-width: 400px;
+            display: none;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .fire-emergency-alert.show {
+            display: block;
+        }
+
+        .fire-emergency-alert h2 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            animation: shake 0.5s ease-in-out infinite;
+        }
+
+        .fire-emergency-alert p {
+            font-size: 1.5em;
+            margin: 15px 0;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 20px 60px rgba(255, 0, 0, 0.5);
+            }
+            50% {
+                box-shadow: 0 20px 80px rgba(255, 0, 0, 0.9);
+            }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .fire-status-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+
+        .fire-status-normal {
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: bold;
+            border: 3px solid #4CAF50;
+        }
+
+        .fire-status-emergency {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: bold;
+            border: 3px solid #ff0000;
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        .fire-icon {
+            font-size: 3em;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🌳 Smart Tree Irrigation System</h1>
 
+        <!-- Fire Emergency Alert Modal -->
+        <div class="fire-emergency-alert" id="fireEmergencyAlert">
+            <h2>🚨 FIRE EMERGENCY! 🚨</h2>
+            <div class="fire-icon">🔥🔥🔥</div>
+            <p><strong>Fire detected by sensor!</strong></p>
+            <p>🚒 Fire pump ACTIVATED</p>
+            <p>💦 Water spray system ACTIVE</p>
+            <p>🔊 Alarm sounding</p>
+            <p style="margin-top: 20px; font-size: 1.2em;">Emergency systems are responding...</p>
+        </div>
+
         <!-- Alert Messages -->
         <div id="alertContainer"></div>
+
+        <!-- Fire Detection Status -->
+        <div class="fire-status-card">
+            <h2 style="color: #667eea; margin-bottom: 15px;">🔥 Fire Detection System</h2>
+            <div class="fire-status-normal" id="fireStatus">
+                <div class="fire-icon">✅</div>
+                <div>No Fire Detected - All Clear</div>
+            </div>
+        </div>
 
         <!-- ESP8266 Connection Status -->
         <div class="connection-status">
@@ -456,6 +561,27 @@
             try {
                 const response = await fetch(`${API_BASE}/api/status`);
                 const data = await response.json();
+                
+                // Update Fire Detection Status
+                const fireStatus = document.getElementById('fireStatus');
+                const fireEmergencyAlert = document.getElementById('fireEmergencyAlert');
+                
+                if (data.fire_detected) {
+                    fireStatus.className = 'fire-status-emergency';
+                    fireStatus.innerHTML = `
+                        <div class="fire-icon">🔥</div>
+                        <div>⚠️ FIRE DETECTED - EMERGENCY MODE ACTIVE ⚠️</div>
+                        <div style="margin-top: 10px; font-size: 0.9em;">Fire pump: ON | Buzzer: ON | Servo: ROTATING</div>
+                    `;
+                    fireEmergencyAlert.classList.add('show');
+                } else {
+                    fireStatus.className = 'fire-status-normal';
+                    fireStatus.innerHTML = `
+                        <div class="fire-icon">✅</div>
+                        <div>No Fire Detected - All Clear</div>
+                    `;
+                    fireEmergencyAlert.classList.remove('show');
+                }
                 
                 // Update ESP8266 connection status
                 const connectionStatus = document.getElementById('connectionStatus');
