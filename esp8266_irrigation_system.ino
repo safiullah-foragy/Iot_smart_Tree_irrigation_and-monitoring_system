@@ -28,14 +28,14 @@ const char* serverUrl = "https://iot-smart-tree-irrigation-and-monitoring.onrend
 #define SENSOR_READ_INTERVAL 2000      // Read sensors every 2 seconds
 #define SERVER_UPDATE_INTERVAL 5000    // Send data to server every 5 seconds
 #define COMMAND_POLL_INTERVAL 3000     // Poll commands from server every 3 seconds
-#define SERVO_UPDATE_INTERVAL 20       // Update servo position every 20ms (smooth rotation)
+#define SERVO_UPDATE_INTERVAL 5        // Update servo position every 5ms (maximum speed)
 
 // Servo Configuration
 #define SERVO_MIN_ANGLE 0       // Minimum rotation angle
-#define SERVO_MAX_ANGLE 160     // Maximum rotation angle for STATE2
+#define SERVO_MAX_ANGLE 180     // Maximum rotation angle (full 180 degrees)
 #define SERVO_FIELD1_ANGLE 180  // Static angle for Field 1 (STATE1)
 #define SERVO_IDLE_ANGLE 90     // Center/idle position
-#define SERVO_ROTATION_STEP 2   // Degrees to move per update (smoother = smaller value)
+#define SERVO_ROTATION_STEP 10  // Degrees to move per update (maximum speed for 360° servo)
 
 // ========================================
 // GLOBAL VARIABLES
@@ -152,15 +152,14 @@ void loop() {
   // Execute received commands (pump and servo control)
   executeCommands();
   
-  // Handle smooth servo rotation for STATE2
+  // Handle continuous servo rotation for STATE2 with proper timing
   if (servoRotating && (currentMillis - lastServoUpdate >= SERVO_UPDATE_INTERVAL)) {
     lastServoUpdate = currentMillis;
     updateServoRotation();
   }
   
-  // Small delay to prevent watchdog timer reset
+  // Small yield to prevent watchdog timer reset
   yield();
-  delay(10);
 }
 
 // ========================================
@@ -205,28 +204,46 @@ void connectToWiFi() {
 // ========================================
 
 void readSensors() {
-  // Read moisture sensor 1 (Analog - Field 1)
-  int rawValue1 = analogRead(SENSOR1_PIN);
+  // Read moisture sensor 1 (Analog - Field 1) - Average of 5 readings for stability
+  long sum1 = 0;
+  for (int i = 0; i < 5; i++) {
+    sum1 += analogRead(SENSOR1_PIN);
+    delay(10);  // Small delay between readings
+  }
+  int rawValue1 = sum1 / 5;
   sensor1Value = map(rawValue1, SENSOR_DRY_VALUE, SENSOR_WET_VALUE, 0, 100);
   sensor1Value = constrain(sensor1Value, 0, 100);
   
   // Read moisture sensor 2 (Digital - Field 2)
-  // For digital sensor: HIGH = dry, LOW = wet
-  // For analog via multiplexer, use: readAnalogMultiplexer(channel)
-  int rawValue2 = digitalRead(SENSOR2_PIN);
-  sensor2Value = (rawValue2 == HIGH) ? 20 : 80;  // Simple mapping for digital sensor
+  // Average multiple readings for stability
+  int highCount = 0;
+  for (int i = 0; i < 10; i++) {
+    if (digitalRead(SENSOR2_PIN) == HIGH) {
+      highCount++;
+    }
+    delay(5);
+  }
   
-  // Display sensor readings
-  Serial.println("┌─────────────────────────────┐");
-  Serial.println("│    SENSOR READINGS          │");
-  Serial.println("├─────────────────────────────┤");
+  // Calculate percentage based on how many times it read HIGH
+  // More HIGH readings = drier soil (lower moisture)
+  sensor2Value = map(highCount, 10, 0, 0, 100);  // Inverted: all HIGH=dry=0%, all LOW=wet=100%
+  sensor2Value = constrain(sensor2Value, 0, 100);
+  
+  // Display sensor readings with raw values for debugging
+  Serial.println("┌─────────────────────────────────────┐");
+  Serial.println("│       SENSOR READINGS               │");
+  Serial.println("├─────────────────────────────────────┤");
   Serial.print("│ Field 1 (Sensor 1): ");
   Serial.print(sensor1Value);
-  Serial.println("%     │");
+  Serial.print("% (Raw: ");
+  Serial.print(rawValue1);
+  Serial.println(")  │");
   Serial.print("│ Field 2 (Sensor 2): ");
   Serial.print(sensor2Value);
-  Serial.println("%     │");
-  Serial.println("└─────────────────────────────┘\n");
+  Serial.print("% (HIGH: ");
+  Serial.print(highCount);
+  Serial.println("/10) │");
+  Serial.println("└─────────────────────────────────────┘\n");
 }
 
 // ========================================
@@ -356,7 +373,7 @@ void executeCommands() {
     servoMotor.write(SERVO_FIELD1_ANGLE);
     
   } else if (servoCommand == "STATE2") {
-    // STATE2: Field 2 irrigation - Continuous rotation 0-160°
+    // STATE2: Field 2 irrigation - Continuous sweeping 0-180° back and forth
     servoRotating = true;
     
   } else {
@@ -371,16 +388,16 @@ void executeCommands() {
 // ========================================
 
 void updateServoRotation() {
-  // Smoothly rotate servo between min and max angles
+  // Move servo continuously
   servoAngle += rotationDirection * SERVO_ROTATION_STEP;
   
-  // Reverse direction at boundaries
+  // Check if reached or exceeded boundaries and reverse direction
   if (servoAngle >= SERVO_MAX_ANGLE) {
-    servoAngle = SERVO_MAX_ANGLE;
-    rotationDirection = -1;  // Change to backward
+    servoAngle = SERVO_MAX_ANGLE;  // Ensure it reaches exactly 180
+    rotationDirection = -1;         // Reverse to go back
   } else if (servoAngle <= SERVO_MIN_ANGLE) {
-    servoAngle = SERVO_MIN_ANGLE;
-    rotationDirection = 1;   // Change to forward
+    servoAngle = SERVO_MIN_ANGLE;  // Ensure it reaches exactly 0
+    rotationDirection = 1;          // Reverse to go forward
   }
   
   servoMotor.write(servoAngle);
