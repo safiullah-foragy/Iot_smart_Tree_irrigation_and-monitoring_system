@@ -262,6 +262,62 @@
             color: white;
             font-weight: bold;
         }
+
+        .connection-status {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .connection-indicator {
+            display: inline-flex;
+            align-items: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .connection-online {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #4CAF50;
+        }
+
+        .connection-offline {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f44336;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .connection-icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+
+        .offline-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            border: 2px solid #ffc107;
+            display: none;
+        }
+
+        .offline-warning.show {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -270,6 +326,18 @@
 
         <!-- Alert Messages -->
         <div id="alertContainer"></div>
+
+        <!-- ESP8266 Connection Status -->
+        <div class="connection-status">
+            <div class="connection-indicator" id="connectionStatus">
+                <span class="connection-icon">📡</span>
+                <span id="connectionText">Checking connection...</span>
+            </div>
+            <div class="offline-warning" id="offlineWarning">
+                ⚠️ <strong>Device Offline:</strong> ESP8266 is not responding. Please check if the device is powered on and WiFi connection is stable.
+                <br><small>Last communication: <span id="lastCommTime">Unknown</span></small>
+            </div>
+        </div>
 
         <!-- Current Mode Display -->
         <div class="current-mode" id="currentMode">
@@ -388,6 +456,27 @@
             try {
                 const response = await fetch(`${API_BASE}/api/status`);
                 const data = await response.json();
+                
+                // Update ESP8266 connection status
+                const connectionStatus = document.getElementById('connectionStatus');
+                const connectionText = document.getElementById('connectionText');
+                const offlineWarning = document.getElementById('offlineWarning');
+                const lastCommTime = document.getElementById('lastCommTime');
+                
+                if (data.esp_connected) {
+                    connectionStatus.className = 'connection-indicator connection-online';
+                    connectionText.innerHTML = '<span class="connection-icon">✅</span>ESP8266 Connected';
+                    offlineWarning.classList.remove('show');
+                } else {
+                    connectionStatus.className = 'connection-indicator connection-offline';
+                    connectionText.innerHTML = '<span class="connection-icon">❌</span>ESP8266 OFFLINE';
+                    offlineWarning.classList.add('show');
+                    
+                    // Update last communication time
+                    if (data.seconds_since_update) {
+                        lastCommTime.textContent = `${data.seconds_since_update} seconds ago`;
+                    }
+                }
                 
                 // Update sensor values
                 document.getElementById('sensor1Value').textContent = data.sensor1_moisture + '%';

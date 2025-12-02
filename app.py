@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, timedelta
 import threading
 import time
 
@@ -15,11 +15,16 @@ system_state = {
     'servo_state': 'IDLE',  # IDLE, STATE1 (180 deg), STATE2 (rotating)
     'control_mode': 'MANUAL',  # MANUAL or AUTO
     'last_update': datetime.now().isoformat(),
+    'last_esp_update': datetime.now(),  # Track ESP8266 last communication
+    'esp_connected': True,  # Connection status
     'auto_mode_active': False,
     'manual_mode_active': True,
     'field1_active': False,
     'field2_active': False
 }
+
+# ESP8266 connection timeout (seconds)
+ESP_TIMEOUT = 15  # Consider offline if no data for 15 seconds
 
 # Thresholds for auto mode
 MOISTURE_THRESHOLD_LOW = 30  # Below this, irrigation needed
@@ -37,7 +42,16 @@ def index():
 def get_status():
     """Get current system status"""
     with state_lock:
-        return jsonify(system_state)
+        # Check if ESP8266 is still connected
+        time_since_update = (datetime.now() - system_state['last_esp_update']).total_seconds()
+        system_state['esp_connected'] = time_since_update < ESP_TIMEOUT
+        
+        # Create response with connection status
+        response = system_state.copy()
+        response['last_esp_update'] = system_state['last_esp_update'].isoformat()
+        response['seconds_since_update'] = int(time_since_update)
+        
+        return jsonify(response)
 
 @app.route('/api/sensor_data', methods=['POST'])
 def receive_sensor_data():
@@ -49,6 +63,8 @@ def receive_sensor_data():
             system_state['sensor1_moisture'] = data.get('sensor1', 0)
             system_state['sensor2_moisture'] = data.get('sensor2', 0)
             system_state['last_update'] = datetime.now().isoformat()
+            system_state['last_esp_update'] = datetime.now()  # Update ESP connection timestamp
+            system_state['esp_connected'] = True  # Mark as connected
         
         # If auto mode is active, process the logic
         if system_state['auto_mode_active']:
@@ -200,6 +216,10 @@ def auto_control_logic():
 def get_esp_commands():
     """ESP8266 polls this endpoint to get commands"""
     with state_lock:
+        # Update ESP connection timestamp when it polls for commands
+        system_state['last_esp_update'] = datetime.now()
+        system_state['esp_connected'] = True
+        
         commands = {
             'pump': system_state['pump_status'],
             'servo': system_state['servo_state'],
