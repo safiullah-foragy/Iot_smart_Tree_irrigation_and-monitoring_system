@@ -197,6 +197,30 @@
             color: white;
         }
 
+        .btn-alarm-on {
+            background: linear-gradient(135deg, #ff0000, #ff6b00);
+            color: white;
+            font-size: 1.2em;
+            padding: 20px 30px;
+            animation: pulse-ring 2s ease-in-out infinite;
+        }
+
+        .btn-alarm-off {
+            background: #757575;
+            color: white;
+            font-size: 1.2em;
+            padding: 20px 30px;
+        }
+
+        @keyframes pulse-ring {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 0 20px rgba(255, 0, 0, 0);
+            }
+        }
+
         .mode-section {
             margin-bottom: 30px;
         }
@@ -509,6 +533,20 @@
             </div>
         </div>
 
+        <!-- Manual Alarm Control Section -->
+        <div class="control-section">
+            <h2>🔔 Manual Alarm Control</h2>
+            <p style="color: #666; margin-bottom: 15px;">Ring the alarm manually for testing or emergency alerts (works in any mode)</p>
+            <div class="button-grid">
+                <button class="btn btn-alarm-on" id="btnAlarmOn" onclick="alarmOn()">
+                    🔊 Ring Alarm
+                </button>
+                <button class="btn btn-alarm-off" id="btnAlarmOff" onclick="alarmOff()">
+                    🔇 Stop Alarm
+                </button>
+            </div>
+        </div>
+
         <!-- Manual Control Section -->
         <div class="control-section">
             <h2>🎮 Manual Control (Active only in Manual Mode)</h2>
@@ -574,6 +612,14 @@
                         <div style="margin-top: 10px; font-size: 0.9em;">Fire pump: ON | Buzzer: ON | Servo: ROTATING</div>
                     `;
                     fireEmergencyAlert.classList.add('show');
+                } else if (data.manual_alarm_active) {
+                    fireStatus.className = 'fire-status-normal';
+                    fireStatus.innerHTML = `
+                        <div class="fire-icon">🔔</div>
+                        <div>No Fire Detected - Manual Alarm Active</div>
+                        <div style="margin-top: 10px; font-size: 0.9em; color: #ff6b00;">🔊 Buzzer: RINGING (Manual)</div>
+                    `;
+                    fireEmergencyAlert.classList.remove('show');
                 } else {
                     fireStatus.className = 'fire-status-normal';
                     fireStatus.innerHTML = `
@@ -855,6 +901,42 @@
                 }
             } catch (error) {
                 showAlert('Error setting servo to active', 'error');
+            }
+        }
+
+        async function alarmOn() {
+            try {
+                const response = await fetch(`${API_BASE}/api/alarm/on`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    updateStatus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error activating alarm', 'error');
+            }
+        }
+
+        async function alarmOff() {
+            try {
+                const response = await fetch(`${API_BASE}/api/alarm/off`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    updateStatus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error deactivating alarm', 'error');
             }
         }
     </script>

@@ -23,7 +23,8 @@ system_state = {
     'field2_active': False,
     'fire_detected': False,  # Fire detection status
     'fire_relay_status': 'OFF',  # Fire pump relay status
-    'buzzer_status': 'OFF'  # Buzzer alarm status
+    'buzzer_status': 'OFF',  # Buzzer alarm status
+    'manual_alarm_active': False  # Manual alarm button state
 }
 
 # ESP8266 connection timeout (seconds)
@@ -247,6 +248,26 @@ def handle_fire_emergency():
         system_state['servo_state'] = 'STATE2'  # Servo rotating for wide coverage
         system_state['buzzer_status'] = 'ON'  # Buzzer alarm ON
         system_state['control_mode'] = 'FIRE_EMERGENCY'  # Override mode
+        system_state['manual_alarm_active'] = False  # Fire takes priority over manual alarm
+
+@app.route('/api/alarm/on', methods=['POST'])
+def alarm_on():
+    """Manually turn alarm ON"""
+    with state_lock:
+        system_state['manual_alarm_active'] = True
+        system_state['buzzer_status'] = 'ON'
+        return jsonify({'status': 'success', 'message': 'Alarm activated'})
+
+@app.route('/api/alarm/off', methods=['POST'])
+def alarm_off():
+    """Manually turn alarm OFF (only if no fire)"""
+    with state_lock:
+        if system_state['fire_detected']:
+            return jsonify({'status': 'error', 'message': 'Cannot disable alarm during fire emergency'}), 403
+        
+        system_state['manual_alarm_active'] = False
+        system_state['buzzer_status'] = 'OFF'
+        return jsonify({'status': 'success', 'message': 'Alarm deactivated'})
 
 @app.route('/api/esp_commands', methods=['GET'])
 def get_esp_commands():
@@ -259,6 +280,7 @@ def get_esp_commands():
         commands = {
             'pump': system_state['pump_status'],
             'servo': system_state['servo_state'],
+            'buzzer': system_state['buzzer_status'],
             'timestamp': datetime.now().isoformat()
         }
     return jsonify(commands)

@@ -58,6 +58,7 @@ bool fireDetected = false;
 // Command states
 String pumpCommand = "OFF";
 String servoCommand = "IDLE";
+String buzzerCommand = "OFF";
 
 // Servo rotation state
 int servoAngle = SERVO_IDLE_ANGLE;
@@ -163,11 +164,10 @@ void loop() {
   if (fireDetected) {
     handleFireEmergency();
   } else {
-    // Normal operation - execute received commands (pump and servo control)
+    // Normal operation - execute received commands (pump, servo, and buzzer control)
     executeCommands();
-    // Ensure fire systems are OFF when no fire
+    // Ensure fire relay is OFF when no fire
     digitalWrite(FIRE_RELAY_PIN, LOW);
-    digitalWrite(BUZZER_PIN, LOW);
   }
   
   // Handle continuous servo rotation for STATE2 with proper timing
@@ -353,18 +353,22 @@ void getCommandsFromServer() {
       if (!error) {
         String newPumpCommand = doc["pump"].as<String>();
         String newServoCommand = doc["servo"].as<String>();
+        String newBuzzerCommand = doc["buzzer"].as<String>();
         
         // Only log if commands changed
-        if (newPumpCommand != pumpCommand || newServoCommand != servoCommand) {
+        if (newPumpCommand != pumpCommand || newServoCommand != servoCommand || newBuzzerCommand != buzzerCommand) {
           Serial.println("[COMMAND] New commands received:");
           Serial.print("  → Pump: ");
           Serial.println(newPumpCommand);
           Serial.print("  → Servo: ");
           Serial.println(newServoCommand);
+          Serial.print("  → Buzzer: ");
+          Serial.println(newBuzzerCommand);
         }
         
         pumpCommand = newPumpCommand;
         servoCommand = newServoCommand;
+        buzzerCommand = newBuzzerCommand;
       } else {
         Serial.print("[ERROR] JSON parsing failed: ");
         Serial.println(error.c_str());
@@ -405,6 +409,13 @@ void executeCommands() {
     // IDLE: No irrigation - Center position
     servoRotating = false;
     servoMotor.write(SERVO_IDLE_ANGLE);
+  }
+  
+  // Control buzzer alarm (manual or fire emergency)
+  if (buzzerCommand == "ON") {
+    digitalWrite(BUZZER_PIN, HIGH);  // Buzzer ON
+  } else {
+    digitalWrite(BUZZER_PIN, LOW);   // Buzzer OFF
   }
 }
 
