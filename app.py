@@ -180,8 +180,8 @@ def stop_auto_mode():
 def auto_control_logic():
     """
     Automatic control logic for irrigation system.
-    - Either sensor below 30% triggers pump ON
-    - Pump OFF when sensor reaches 80%
+    - Below 30%: Start BOTH pump AND servo (servo state based on which sensor)
+    - Above 80%: Turn OFF both pump AND servo completely
     - Sensor 1 emergency: Use STATE1 (static 180°)
     - Sensor 2 emergency: Use STATE2 (rotating 0-180°)
     - If both sensors in emergency: Prioritize Sensor 1
@@ -194,43 +194,39 @@ def auto_control_logic():
         sensor1_emergency = sensor1 < MOISTURE_THRESHOLD_LOW
         sensor2_emergency = sensor2 < MOISTURE_THRESHOLD_LOW
         
-        # Check if sensors have reached target moisture
-        sensor1_satisfied = sensor1 >= MOISTURE_THRESHOLD_HIGH
-        sensor2_satisfied = sensor2 >= MOISTURE_THRESHOLD_HIGH
-        
         # Determine what action to take
         if sensor1_emergency:
-            # Sensor 1 is in emergency - Use STATE1 (static 180°)
+            # Sensor 1 is in emergency - Start pump AND servo STATE1 (static 180°)
             system_state['pump_status'] = 'ON'
             system_state['servo_state'] = 'STATE1'
             system_state['field1_active'] = True
             system_state['field2_active'] = False  # Field 1 has priority
             
         elif sensor2_emergency:
-            # Only Sensor 2 is in emergency - Use STATE2 (rotating)
+            # Only Sensor 2 is in emergency - Start pump AND servo STATE2 (rotating)
             system_state['pump_status'] = 'ON'
             system_state['servo_state'] = 'STATE2'
             system_state['field1_active'] = False
             system_state['field2_active'] = True
             
-        else:
-            # No emergency - Check if we should stop irrigation
-            if system_state['field1_active'] and sensor1_satisfied:
-                # Field 1 irrigation complete
-                system_state['field1_active'] = False
-                system_state['pump_status'] = 'OFF'
-                system_state['servo_state'] = 'IDLE'
-                
-            elif system_state['field2_active'] and sensor2_satisfied:
-                # Field 2 irrigation complete
-                system_state['field2_active'] = False
-                system_state['pump_status'] = 'OFF'
-                system_state['servo_state'] = 'IDLE'
+        elif sensor1 >= MOISTURE_THRESHOLD_HIGH and sensor2 >= MOISTURE_THRESHOLD_HIGH:
+            # BOTH sensors above 80% - Turn OFF both pump and servo completely
+            system_state['pump_status'] = 'OFF'
+            system_state['servo_state'] = 'IDLE'
+            system_state['field1_active'] = False
+            system_state['field2_active'] = False
             
-            elif not system_state['field1_active'] and not system_state['field2_active']:
-                # Both fields satisfied - ensure everything is OFF
-                system_state['pump_status'] = 'OFF'
-                system_state['servo_state'] = 'IDLE'
+        elif system_state['field1_active'] and sensor1 >= MOISTURE_THRESHOLD_HIGH:
+            # Field 1 reached 80% - Turn OFF both pump and servo
+            system_state['pump_status'] = 'OFF'
+            system_state['servo_state'] = 'IDLE'
+            system_state['field1_active'] = False
+            
+        elif system_state['field2_active'] and sensor2 >= MOISTURE_THRESHOLD_HIGH:
+            # Field 2 reached 80% - Turn OFF both pump and servo
+            system_state['pump_status'] = 'OFF'
+            system_state['servo_state'] = 'IDLE'
+            system_state['field2_active'] = False
 
 @app.route('/api/esp_commands', methods=['GET'])
 def get_esp_commands():
