@@ -27,8 +27,8 @@ system_state = {
 ESP_TIMEOUT = 15  # Consider offline if no data for 15 seconds
 
 # Thresholds for auto mode
-MOISTURE_THRESHOLD_LOW = 30  # Below this, irrigation needed
-MOISTURE_THRESHOLD_HIGH = 70  # Above this, irrigation sufficient
+MOISTURE_THRESHOLD_LOW = 30   # Below this, irrigation needed (emergency)
+MOISTURE_THRESHOLD_HIGH = 80  # Above this, irrigation sufficient (stop)
 
 # Lock for thread-safe operations
 state_lock = threading.Lock()
@@ -180,37 +180,57 @@ def stop_auto_mode():
 def auto_control_logic():
     """
     Automatic control logic for irrigation system.
-    Priority: Sensor 1 (Field 1) -> Sensor 2 (Field 2)
+    - Either sensor below 30% triggers pump ON
+    - Pump OFF when sensor reaches 80%
+    - Sensor 1 emergency: Use STATE1 (static 180°)
+    - Sensor 2 emergency: Use STATE2 (rotating 0-180°)
+    - If both sensors in emergency: Prioritize Sensor 1
     """
     with state_lock:
         sensor1 = system_state['sensor1_moisture']
         sensor2 = system_state['sensor2_moisture']
         
-        # Field 1 (Sensor 1) - Continuous irrigation with static servo
-        if sensor1 < MOISTURE_THRESHOLD_LOW and not system_state['field2_active']:
-            # Start irrigation for Field 1
-            system_state['pump_status'] = 'ON'
-            system_state['servo_state'] = 'STATE1'  # 180 degrees right
-            system_state['field1_active'] = True
-        elif sensor1 >= MOISTURE_THRESHOLD_HIGH and system_state['field1_active']:
-            # Stop irrigation for Field 1
-            system_state['pump_status'] = 'OFF'
-            system_state['servo_state'] = 'IDLE'
-            system_state['field1_active'] = False
+        # Check which sensors need emergency irrigation
+        sensor1_emergency = sensor1 < MOISTURE_THRESHOLD_LOW
+        sensor2_emergency = sensor2 < MOISTURE_THRESHOLD_LOW
         
-        # Field 2 (Sensor 2) - Rotating irrigation
-        # Only if Field 1 is not active
-        if not system_state['field1_active']:
-            if sensor2 < MOISTURE_THRESHOLD_LOW:
-                # Start irrigation for Field 2
-                system_state['pump_status'] = 'ON'
-                system_state['servo_state'] = 'STATE2'  # Rotating
-                system_state['field2_active'] = True
-            elif sensor2 >= MOISTURE_THRESHOLD_HIGH and system_state['field2_active']:
-                # Stop irrigation for Field 2
+        # Check if sensors have reached target moisture
+        sensor1_satisfied = sensor1 >= MOISTURE_THRESHOLD_HIGH
+        sensor2_satisfied = sensor2 >= MOISTURE_THRESHOLD_HIGH
+        
+        # Determine what action to take
+        if sensor1_emergency:
+            # Sensor 1 is in emergency - Use STATE1 (static 180°)
+            system_state['pump_status'] = 'ON'
+            system_state['servo_state'] = 'STATE1'
+            system_state['field1_active'] = True
+            system_state['field2_active'] = False  # Field 1 has priority
+            
+        elif sensor2_emergency:
+            # Only Sensor 2 is in emergency - Use STATE2 (rotating)
+            system_state['pump_status'] = 'ON'
+            system_state['servo_state'] = 'STATE2'
+            system_state['field1_active'] = False
+            system_state['field2_active'] = True
+            
+        else:
+            # No emergency - Check if we should stop irrigation
+            if system_state['field1_active'] and sensor1_satisfied:
+                # Field 1 irrigation complete
+                system_state['field1_active'] = False
                 system_state['pump_status'] = 'OFF'
                 system_state['servo_state'] = 'IDLE'
+                
+            elif system_state['field2_active'] and sensor2_satisfied:
+                # Field 2 irrigation complete
                 system_state['field2_active'] = False
+                system_state['pump_status'] = 'OFF'
+                system_state['servo_state'] = 'IDLE'
+            
+            elif not system_state['field1_active'] and not system_state['field2_active']:
+                # Both fields satisfied - ensure everything is OFF
+                system_state['pump_status'] = 'OFF'
+                system_state['servo_state'] = 'IDLE'
 
 @app.route('/api/esp_commands', methods=['GET'])
 def get_esp_commands():
