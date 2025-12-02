@@ -343,22 +343,22 @@
             display: block;
         }
 
-        /* Fire Emergency Alert Styles */
+        /* Fire Emergency Alert Styles - Small Sticky Note */
         .fire-emergency-alert {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 20px;
+            right: 20px;
             background: linear-gradient(135deg, #ff0000, #ff6b00);
             color: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(255, 0, 0, 0.5);
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(255, 0, 0, 0.6);
             z-index: 10000;
             text-align: center;
-            min-width: 400px;
+            max-width: 200px;
             display: none;
-            animation: pulse 1s ease-in-out infinite;
+            animation: pulse 1.5s ease-in-out infinite;
+            border: 3px solid #fff;
         }
 
         .fire-emergency-alert.show {
@@ -366,15 +366,16 @@
         }
 
         .fire-emergency-alert h2 {
-            font-size: 3em;
-            margin-bottom: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            font-size: 1.2em;
+            margin-bottom: 8px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
             animation: shake 0.5s ease-in-out infinite;
         }
 
         .fire-emergency-alert p {
-            font-size: 1.5em;
-            margin: 15px 0;
+            font-size: 0.75em;
+            margin: 5px 0;
+            line-height: 1.3;
         }
 
         @keyframes pulse {
@@ -433,15 +434,14 @@
     <div class="container">
         <h1>🌳 Smart Tree Irrigation System</h1>
 
-        <!-- Fire Emergency Alert Modal -->
+        <!-- Fire Emergency Alert - Small Sticky Note -->
         <div class="fire-emergency-alert" id="fireEmergencyAlert">
-            <h2>🚨 FIRE EMERGENCY! 🚨</h2>
-            <div class="fire-icon">🔥🔥🔥</div>
-            <p><strong>Fire detected by sensor!</strong></p>
-            <p>🚒 Fire pump ACTIVATED</p>
-            <p>💦 Water spray system ACTIVE</p>
-            <p>🔊 Alarm sounding</p>
-            <p style="margin-top: 20px; font-size: 1.2em;">Emergency systems are responding...</p>
+            <h2>🚨 FIRE! 🚨</h2>
+            <div style="font-size: 2em; margin: 5px 0;">🔥</div>
+            <p><strong>EMERGENCY</strong></p>
+            <p>🚒 Fire Pump ON</p>
+            <p>💦 Water Active</p>
+            <p>🔊 Alarm ON</p>
         </div>
 
         <!-- Alert Messages -->
