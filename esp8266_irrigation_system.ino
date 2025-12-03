@@ -26,9 +26,17 @@ const char* serverUrl = "https://iot-smart-tree-irrigation-and-monitoring.onrend
 #define FLAME_SENSOR_PIN D4 // Digital pin for flame sensor input
 #define BUZZER_PIN D5       // Digital pin for buzzer alarm output
 
-// Sensor Calibration (adjust based on your sensors)
-#define SENSOR_DRY_VALUE 1023    // Analog reading when sensor is dry
-#define SENSOR_WET_VALUE 0       // Analog reading when sensor is wet
+// Sensor Calibration (calibrated for your specific sensor)
+// Based on actual measurements:
+// - Sensor in AIR (dry): Raw value = 700 (outputs HIGH in air)
+// - Sensor in WATER (wet): Raw value = 250 (outputs LOW in water)
+// 
+// This calibration ensures:
+// - Raw 700 or more = 0% moisture (completely dry - in air)
+// - Raw 250 or less = 100% moisture (completely wet - in water)
+// - Values between 700-250 map linearly to 0-100%
+#define SENSOR_DRY_VALUE 700     // Raw value when sensor is in air (dry)
+#define SENSOR_WET_VALUE 250     // Raw value when sensor is in water (wet)
 
 // Timing Configuration (milliseconds)
 #define SENSOR_READ_INTERVAL 2000      // Read sensors every 2 seconds
@@ -37,9 +45,9 @@ const char* serverUrl = "https://iot-smart-tree-irrigation-and-monitoring.onrend
 #define SERVO_UPDATE_INTERVAL 5        // Update servo position every 5ms (maximum speed)
 
 // Servo Configuration
-#define SERVO_MIN_ANGLE 0       // Minimum rotation angle
+#define SERVO_MIN_ANGLE 10      // Minimum rotation angle for Field 1 (STATE1)
 #define SERVO_MAX_ANGLE 180     // Maximum rotation angle (full 180 degrees)
-#define SERVO_FIELD1_ANGLE 180  // Static angle for Field 1 (STATE1)
+#define SERVO_FIELD2_ANGLE 0    // Static angle for Field 2 (STATE2) - DO sensor
 #define SERVO_IDLE_ANGLE 90     // Center/idle position
 #define SERVO_ROTATION_STEP 10  // Degrees to move per update (maximum speed for 360° servo)
 
@@ -266,12 +274,13 @@ void readSensors() {
     delay(10);  // Small delay between readings
   }
   int rawValue1 = sum1 / 5;
+  // Map raw sensor value to 0-100% based on calibration values
+  // The map function automatically handles whether DRY > WET or WET > DRY
   sensor1Value = map(rawValue1, SENSOR_DRY_VALUE, SENSOR_WET_VALUE, 0, 100);
   sensor1Value = constrain(sensor1Value, 0, 100);
   
   // Read moisture sensor 2 (Digital DO sensor - Field 2)
-  // Digital sensor: HIGH = Dry soil, LOW = Wet soil
-  // Average multiple readings for stability
+  // Digital sensor: Read multiple times for stability
   int highCount = 0;
   for (int i = 0; i < 10; i++) {
     if (digitalRead(SENSOR2_PIN) == HIGH) {
@@ -280,8 +289,10 @@ void readSensors() {
     delay(5);
   }
   
-  // Determine dry/wet state: if more than 5 out of 10 readings are HIGH, soil is dry
-  sensor2Dry = (highCount > 5);
+  // Determine dry/wet state based on HIGH readings
+  // If MORE than 5 out of 10 readings are HIGH, soil is DRY (sensor outputs HIGH in air)
+  // If LESS than 5 out of 10 readings are HIGH, soil is WET (sensor outputs LOW in water)
+  sensor2Dry = (highCount >= 5);
   
   // Read flame sensor (Digital - Active LOW: LOW = Fire detected)
   fireDetected = (digitalRead(FLAME_SENSOR_PIN) == LOW);
@@ -295,6 +306,18 @@ void readSensors() {
   Serial.print("% (Raw: ");
   Serial.print(rawValue1);
   Serial.println(")     │");
+  
+  // Calibration guidance based on raw value
+  if (rawValue1 < 100) {
+    Serial.println("│ ⚠️  TOO LOW - Turn pot LEFT       │");
+  } else if (rawValue1 > 950) {
+    Serial.println("│ ⚠️  TOO HIGH - Turn pot RIGHT     │");
+  } else if (rawValue1 >= 100 && rawValue1 <= 600) {
+    Serial.println("│ ✓ Good range for DRY calibration  │");
+  } else if (rawValue1 >= 700 && rawValue1 <= 950) {
+    Serial.println("│ ✓ Good range for WET calibration  │");
+  }
+  
   Serial.print("│ Field 2 (DO Sensor): ");
   Serial.print(sensor2Dry ? "DRY" : "WET");
   Serial.print(" (HIGH: ");
@@ -433,13 +456,13 @@ void executeCommands() {
   
   // Control servo motor position/rotation
   if (servoCommand == "STATE1") {
-    // STATE1: Field 1 irrigation - Static position at 180°
-    servoRotating = false;
-    servoMotor.write(SERVO_FIELD1_ANGLE);
+    // STATE1: Field 1 irrigation (A0 sensor) - Continuous sweeping 10-180°
+    servoRotating = true;
     
   } else if (servoCommand == "STATE2") {
-    // STATE2: Field 2 irrigation - Continuous sweeping 0-180° back and forth
-    servoRotating = true;
+    // STATE2: Field 2 irrigation (DO sensor) - Static position at 0°
+    servoRotating = false;
+    servoMotor.write(SERVO_FIELD2_ANGLE);
     
   } else {
     // IDLE: No irrigation - Center position

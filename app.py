@@ -202,42 +202,42 @@ def stop_auto_mode():
 def auto_control_logic():
     """
     Automatic control logic for irrigation system.
-    - Field 1 (Analog sensor): Below 30% start irrigation, above 80% stop
+    - Field 1 (A0 analog sensor): Below 50% start irrigation, above 51% stop
     - Field 2 (DO digital sensor): If DRY start irrigation, if WET stop
-    - Field 1 uses STATE1 (static 180°)
-    - Field 2 uses STATE2 (rotating 0-180°)
+    - Field 1 uses STATE1 (rotating 10-180°)
+    - Field 2 uses STATE2 (static 0°)
     """
     with state_lock:
         sensor1 = system_state['sensor1_moisture']
         sensor2_is_dry = system_state['sensor2_dry']
         
         # Check which sensors need irrigation
-        sensor1_emergency = sensor1 < MOISTURE_THRESHOLD_LOW
+        sensor1_needs_water = sensor1 < 50  # Changed: Below 50% needs irrigation
         
         # Determine what action to take
-        if sensor1_emergency:
-            # Sensor 1 is in emergency (<30%) - Start pump AND servo STATE1 (static 180°)
+        if sensor1_needs_water:
+            # Sensor 1 is below 50% - Start pump AND servo STATE1 (rotating 10-180°)
             system_state['pump_status'] = 'ON'
             system_state['servo_state'] = 'STATE1'
             system_state['field1_active'] = True
             system_state['field2_active'] = False  # Field 1 has priority
             
         elif sensor2_is_dry:
-            # Sensor 2 is DRY - Start pump AND servo STATE2 (rotating)
+            # Sensor 2 is DRY - Start pump AND servo STATE2 (static 0°)
             system_state['pump_status'] = 'ON'
             system_state['servo_state'] = 'STATE2'
             system_state['field1_active'] = False
             system_state['field2_active'] = True
             
-        elif sensor1 >= MOISTURE_THRESHOLD_HIGH and not sensor2_is_dry:
-            # Field 1 above 80% AND Field 2 is WET - Turn OFF both pump and servo completely
+        elif sensor1 > 50 and not sensor2_is_dry:
+            # Field 1 above 50% AND Field 2 is WET - Turn OFF both pump and servo completely
             system_state['pump_status'] = 'OFF'
             system_state['servo_state'] = 'IDLE'
             system_state['field1_active'] = False
             system_state['field2_active'] = False
             
-        elif system_state['field1_active'] and sensor1 >= MOISTURE_THRESHOLD_HIGH:
-            # Field 1 reached 80% - Turn OFF both pump and servo
+        elif system_state['field1_active'] and sensor1 > 50:
+            # Field 1 reached 51% - Turn OFF both pump and servo
             system_state['pump_status'] = 'OFF'
             system_state['servo_state'] = 'IDLE'
             system_state['field1_active'] = False
