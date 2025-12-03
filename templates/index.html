@@ -212,6 +212,21 @@
             padding: 20px 30px;
         }
 
+        .btn-fire-auto {
+            background: #FF9800;
+            color: white;
+        }
+
+        .btn-fire-manual {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-fire-off {
+            background: #9E9E9E;
+            color: white;
+        }
+
         @keyframes pulse-ring {
             0%, 100% {
                 box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
@@ -449,10 +464,28 @@
 
         <!-- Fire Detection Status -->
         <div class="fire-status-card">
-            <h2 style="color: #667eea; margin-bottom: 15px;">🔥 Fire Detection System</h2>
+            <h2 style="color: #667eea; margin-bottom: 15px;">🔥 Fire Emergency System</h2>
             <div class="fire-status-normal" id="fireStatus">
                 <div class="fire-icon">✅</div>
                 <div>No Fire Detected - All Clear</div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <h3 style="color: #667eea; margin-bottom: 10px; font-size: 1.1em;">Fire Emergency Mode:</h3>
+                <div class="button-grid">
+                    <button class="btn btn-fire-auto" id="btnFireAuto" onclick="fireAutoMode()">
+                        🔥 Auto Mode
+                    </button>
+                    <button class="btn btn-fire-manual" id="btnFireManual" onclick="fireManualMode()">
+                        🚨 Manual Emergency
+                    </button>
+                    <button class="btn btn-fire-off" id="btnFireOff" onclick="fireOffMode()">
+                        ❌ Deactivate
+                    </button>
+                </div>
+                <div id="fireModeCurrent" style="margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 5px; text-align: center; font-weight: bold;">
+                    Fire Mode: OFF
+                </div>
             </div>
         </div>
 
@@ -603,13 +636,34 @@
                 // Update Fire Detection Status
                 const fireStatus = document.getElementById('fireStatus');
                 const fireEmergencyAlert = document.getElementById('fireEmergencyAlert');
+                const fireModeCurrent = document.getElementById('fireModeCurrent');
                 
-                if (data.fire_detected) {
+                // Update fire mode display
+                let fireModeText = 'Fire Mode: OFF';
+                let fireModeColor = '#f0f0f0';
+                
+                if (data.fire_emergency_mode === 'AUTO') {
+                    fireModeText = '🔥 Fire Mode: AUTO (Sensor Active)';
+                    fireModeColor = '#fff3cd';
+                } else if (data.fire_emergency_mode === 'MANUAL') {
+                    fireModeText = '🚨 Fire Mode: MANUAL EMERGENCY';
+                    fireModeColor = '#f8d7da';
+                }
+                
+                fireModeCurrent.textContent = fireModeText;
+                fireModeCurrent.style.background = fireModeColor;
+                
+                if (data.fire_mode_active) {
+                    // Fire emergency is ACTIVE
                     fireStatus.className = 'fire-status-emergency';
                     fireStatus.innerHTML = `
                         <div class="fire-icon">🔥</div>
-                        <div>⚠️ FIRE DETECTED - EMERGENCY MODE ACTIVE ⚠️</div>
-                        <div style="margin-top: 10px; font-size: 0.9em;">Fire pump: ON | Buzzer: ON | Servo: ROTATING</div>
+                        <div>⚠️ FIRE EMERGENCY ACTIVE ⚠️</div>
+                        <div style="margin-top: 10px; font-size: 0.9em;">
+                            ${data.fire_detected ? 'Fire Sensor: DETECTED' : 'Manual Mode Active'}<br>
+                            Fire pump: ON | Water: ON | Servo: ROTATING<br>
+                            🚫 All irrigation activities STOPPED
+                        </div>
                     `;
                     fireEmergencyAlert.classList.add('show');
                 } else if (data.manual_alarm_active) {
@@ -937,6 +991,55 @@
                 }
             } catch (error) {
                 showAlert('Error deactivating alarm', 'error');
+            }
+        }
+
+        // Fire Emergency Mode Functions
+        async function fireAutoMode() {
+            if (confirm('Enable AUTO fire mode? System will respond to fire sensor and auto-stop when fire clears.')) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/fire/mode/auto`, {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    
+                    showAlert(data.message || 'Fire AUTO mode enabled', 'success');
+                    updateStatus();
+                } catch (error) {
+                    showAlert('Failed to enable fire AUTO mode', 'error');
+                }
+            }
+        }
+
+        async function fireManualMode() {
+            if (confirm('⚠️ Activate MANUAL fire emergency? This will immediately stop all irrigation and activate fire systems.')) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/fire/mode/manual`, {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    
+                    showAlert(data.message || 'Manual fire emergency ACTIVATED', 'success');
+                    updateStatus();
+                } catch (error) {
+                    showAlert('Failed to activate manual fire emergency', 'error');
+                }
+            }
+        }
+
+        async function fireOffMode() {
+            if (confirm('Deactivate fire emergency and return to normal operation?')) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/fire/mode/off`, {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    
+                    showAlert(data.message || 'Fire emergency deactivated', 'success');
+                    updateStatus();
+                } catch (error) {
+                    showAlert('Failed to deactivate fire emergency', 'error');
+                }
             }
         }
     </script>

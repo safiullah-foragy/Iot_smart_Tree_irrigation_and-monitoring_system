@@ -21,10 +21,12 @@ system_state = {
     'manual_mode_active': True,
     'field1_active': False,
     'field2_active': False,
-    'fire_detected': False,  # Fire detection status
+    'fire_detected': False,  # Fire detection status from sensor
     'fire_relay_status': 'OFF',  # Fire pump relay status
     'buzzer_status': 'OFF',  # Buzzer alarm status
-    'manual_alarm_active': False  # Manual alarm button state
+    'manual_alarm_active': False,  # Manual alarm button state
+    'fire_emergency_mode': 'OFF',  # OFF, AUTO, MANUAL
+    'fire_mode_active': False  # True when fire emergency is active (either auto or manual)
 }
 
 # ESP8266 connection timeout (seconds)
@@ -71,12 +73,24 @@ def receive_sensor_data():
             system_state['last_esp_update'] = datetime.now()  # Update ESP connection timestamp
             system_state['esp_connected'] = True  # Mark as connected
         
-        # FIRE EMERGENCY - Overrides all other modes
-        if system_state['fire_detected']:
-            handle_fire_emergency()
-        # If auto mode is active and no fire, process irrigation logic
-        elif system_state['auto_mode_active']:
-            auto_control_logic()
+        # Check fire emergency conditions
+        if system_state['fire_emergency_mode'] == 'AUTO' and system_state['fire_detected']:
+            # AUTO mode: Fire detected by sensor - activate fire emergency
+            activate_fire_emergency()
+        elif system_state['fire_emergency_mode'] == 'AUTO' and not system_state['fire_detected']:
+            # AUTO mode: Fire cleared - deactivate fire emergency
+            if system_state['fire_mode_active']:
+                deactivate_fire_emergency()
+        elif system_state['fire_emergency_mode'] == 'MANUAL':
+            # MANUAL mode: Keep fire emergency active regardless of sensor
+            activate_fire_emergency()
+        elif system_state['fire_emergency_mode'] == 'OFF':
+            # Fire mode OFF: Deactivate if active
+            if system_state['fire_mode_active']:
+                deactivate_fire_emergency()
+            # Run normal irrigation if auto mode active
+            if system_state['auto_mode_active']:
+                auto_control_logic()
         
         return jsonify({'status': 'success', 'message': 'Sensor data received'})
     except Exception as e:
@@ -236,19 +250,73 @@ def auto_control_logic():
             system_state['servo_state'] = 'IDLE'
             system_state['field2_active'] = False
 
-def handle_fire_emergency():
+def activate_fire_emergency():
     """
-    Fire emergency protocol - Overrides all other modes.
-    Activates fire suppression systems automatically.
+    Activate fire emergency mode.
+    Stops all irrigation activities and activates fire suppression.
     """
     with state_lock:
-        # Fire detected - activate all fire suppression systems
+        # Mark fire mode as active
+        system_state['fire_mode_active'] = True
+        
+        # Stop all irrigation activities
+        system_state['field1_active'] = False
+        system_state['field2_active'] = False
+        
+        # Activate fire suppression systems
         system_state['fire_relay_status'] = 'ON'  # Fire pump ON
-        system_state['pump_status'] = 'ON'  # Main pump also ON
+        system_state['pump_status'] = 'ON'  # Main pump also ON for water
         system_state['servo_state'] = 'STATE2'  # Servo rotating for wide coverage
         system_state['buzzer_status'] = 'ON'  # Buzzer alarm ON
         system_state['control_mode'] = 'FIRE_EMERGENCY'  # Override mode
-        system_state['manual_alarm_active'] = False  # Fire takes priority over manual alarm
+
+def deactivate_fire_emergency():
+    """Deactivate fire emergency and return to normal operation"""
+    with state_lock:
+        # Mark fire mode as inactive
+        system_state['fire_mode_active'] = False
+        system_state['fire_emergency_mode'] = 'OFF'
+        
+        # Turn off all fire systems
+        system_state['fire_relay_status'] = 'OFF'
+        system_state['pump_status'] = 'OFF'
+        system_state['servo_state'] = 'IDLE'
+        system_state['buzzer_status'] = 'OFF'
+        
+        # Return to previous mode
+        if system_state['manual_mode_active']:
+            system_state['control_mode'] = 'MANUAL'
+        elif system_state['auto_mode_active']:
+            system_state['control_mode'] = 'AUTO'
+        else:
+            system_state['control_mode'] = 'MANUAL'
+
+@app.route('/api/fire/mode/auto', methods=['POST'])
+def fire_mode_auto():
+    """Activate AUTO fire emergency mode - responds to fire sensor"""
+    with state_lock:
+        system_state['fire_emergency_mode'] = 'AUTO'
+        # If fire already detected, activate immediately
+        if system_state['fire_detected']:
+            activate_fire_emergency()
+        return jsonify({'status': 'success', 'message': 'Fire emergency AUTO mode activated'})
+
+@app.route('/api/fire/mode/manual', methods=['POST'])
+def fire_mode_manual():
+    """Activate MANUAL fire emergency mode - always active"""
+    with state_lock:
+        system_state['fire_emergency_mode'] = 'MANUAL'
+        activate_fire_emergency()
+        return jsonify({'status': 'success', 'message': 'Fire emergency MANUAL mode activated'})
+
+@app.route('/api/fire/mode/off', methods=['POST'])
+def fire_mode_off():
+    """Deactivate fire emergency mode"""
+    with state_lock:
+        system_state['fire_emergency_mode'] = 'OFF'
+        if system_state['fire_mode_active']:
+            deactivate_fire_emergency()
+        return jsonify({'status': 'success', 'message': 'Fire emergency mode deactivated'})
 
 @app.route('/api/alarm/on', methods=['POST'])
 def alarm_on():
