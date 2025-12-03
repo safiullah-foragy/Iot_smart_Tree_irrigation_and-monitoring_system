@@ -215,20 +215,7 @@
             padding: 20px 30px;
         }
 
-        .btn-fire-auto {
-            background: #FF9800;
-            color: white;
-        }
 
-        .btn-fire-manual {
-            background: #f44336;
-            color: white;
-        }
-
-        .btn-fire-off {
-            background: #9E9E9E;
-            color: white;
-        }
 
         @keyframes pulse-ring {
             0%, 100% {
@@ -411,41 +398,7 @@
             75% { transform: translateX(10px); }
         }
 
-        .fire-status-card {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            margin-bottom: 20px;
-        }
 
-        .fire-status-normal {
-            background: #d4edda;
-            color: #155724;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 1.3em;
-            font-weight: bold;
-            border: 3px solid #4CAF50;
-        }
-
-        .fire-status-emergency {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 1.3em;
-            font-weight: bold;
-            border: 3px solid #ff0000;
-            animation: blink 1s ease-in-out infinite;
-        }
-
-        .fire-icon {
-            font-size: 3em;
-            margin: 10px 0;
-        }
     </style>
 </head>
 <body>
@@ -465,32 +418,7 @@
         <!-- Alert Messages -->
         <div id="alertContainer"></div>
 
-        <!-- Fire Detection Status -->
-        <div class="fire-status-card">
-            <h2 style="color: #667eea; margin-bottom: 15px;">🔥 Fire Emergency System</h2>
-            <div class="fire-status-normal" id="fireStatus">
-                <div class="fire-icon">✅</div>
-                <div>No Fire Detected - All Clear</div>
-            </div>
-            
-            <div style="margin-top: 20px;">
-                <h3 style="color: #667eea; margin-bottom: 10px; font-size: 1.1em;">Fire Emergency Mode:</h3>
-                <div class="button-grid">
-                    <button class="btn btn-fire-auto" id="btnFireAuto" onclick="fireAutoMode()">
-                        🔥 Auto Mode
-                    </button>
-                    <button class="btn btn-fire-manual" id="btnFireManual" onclick="fireManualMode()">
-                        🚨 Manual Emergency
-                    </button>
-                    <button class="btn btn-fire-off" id="btnFireOff" onclick="fireOffMode()">
-                        ❌ Deactivate
-                    </button>
-                </div>
-                <div id="fireModeCurrent" style="margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 5px; text-align: center; font-weight: bold;">
-                    Fire Mode: OFF
-                </div>
-            </div>
-        </div>
+
 
         <!-- ESP8266 Connection Status -->
         <div class="connection-status">
@@ -634,53 +562,14 @@
                 const response = await fetch(`${API_BASE}/api/status`);
                 const data = await response.json();
                 
-                // Update Fire Detection Status
-                const fireStatus = document.getElementById('fireStatus');
+                // Update Fire Detection Status - Show popup only when fire detected
                 const fireEmergencyAlert = document.getElementById('fireEmergencyAlert');
-                const fireModeCurrent = document.getElementById('fireModeCurrent');
                 
-                // Update fire mode display
-                let fireModeText = 'Fire Mode: OFF';
-                let fireModeColor = '#f0f0f0';
-                
-                if (data.fire_emergency_mode === 'AUTO') {
-                    fireModeText = '🔥 Fire Mode: AUTO (Sensor Active)';
-                    fireModeColor = '#fff3cd';
-                } else if (data.fire_emergency_mode === 'MANUAL') {
-                    fireModeText = '🚨 Fire Mode: MANUAL EMERGENCY';
-                    fireModeColor = '#f8d7da';
-                }
-                
-                fireModeCurrent.textContent = fireModeText;
-                fireModeCurrent.style.background = fireModeColor;
-                
-                if (data.fire_mode_active) {
-                    // Fire emergency is ACTIVE
-                    fireStatus.className = 'fire-status-emergency';
-                    fireStatus.innerHTML = `
-                        <div class="fire-icon">🔥</div>
-                        <div>⚠️ FIRE EMERGENCY ACTIVE ⚠️</div>
-                        <div style="margin-top: 10px; font-size: 0.9em;">
-                            ${data.fire_detected ? 'Fire Sensor: DETECTED' : 'Manual Mode Active'}<br>
-                            Fire pump: ON | Water: ON | Servo: ROTATING<br>
-                            🚫 All irrigation activities STOPPED
-                        </div>
-                    `;
+                if (data.fire_detected) {
+                    // Fire detected - show popup alert
                     fireEmergencyAlert.classList.add('show');
-                } else if (data.manual_alarm_active) {
-                    fireStatus.className = 'fire-status-normal';
-                    fireStatus.innerHTML = `
-                        <div class="fire-icon">🔔</div>
-                        <div>No Fire Detected - Manual Alarm Active</div>
-                        <div style="margin-top: 10px; font-size: 0.9em; color: #ff6b00;">🔊 Buzzer: RINGING (Manual)</div>
-                    `;
-                    fireEmergencyAlert.classList.remove('show');
                 } else {
-                    fireStatus.className = 'fire-status-normal';
-                    fireStatus.innerHTML = `
-                        <div class="fire-icon">✅</div>
-                        <div>No Fire Detected - All Clear</div>
-                    `;
+                    // No fire - hide popup
                     fireEmergencyAlert.classList.remove('show');
                 }
                 
