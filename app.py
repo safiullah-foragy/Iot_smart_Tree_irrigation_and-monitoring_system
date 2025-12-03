@@ -10,7 +10,7 @@ CORS(app)
 # Global state variables
 system_state = {
     'sensor1_moisture': 0,
-    'sensor2_moisture': 0,
+    'sensor2_dry': False,  # DO sensor: True=Dry, False=Wet
     'pump_status': 'OFF',
     'servo_state': 'IDLE',  # IDLE, STATE1 (180 deg), STATE2 (rotating)
     'control_mode': 'MANUAL',  # MANUAL or AUTO
@@ -67,7 +67,7 @@ def receive_sensor_data():
         
         with state_lock:
             system_state['sensor1_moisture'] = data.get('sensor1', 0)
-            system_state['sensor2_moisture'] = data.get('sensor2', 0)
+            system_state['sensor2_dry'] = data.get('sensor2_dry', False)  # Boolean: True=Dry, False=Wet
             system_state['fire_detected'] = data.get('fire_detected', False)
             system_state['last_update'] = datetime.now().isoformat()
             system_state['last_esp_update'] = datetime.now()  # Update ESP connection timestamp
@@ -202,37 +202,35 @@ def stop_auto_mode():
 def auto_control_logic():
     """
     Automatic control logic for irrigation system.
-    - Below 30%: Start BOTH pump AND servo (servo state based on which sensor)
-    - Above 80%: Turn OFF both pump AND servo completely
-    - Sensor 1 emergency: Use STATE1 (static 180°)
-    - Sensor 2 emergency: Use STATE2 (rotating 0-180°)
-    - If both sensors in emergency: Prioritize Sensor 1
+    - Field 1 (Analog sensor): Below 30% start irrigation, above 80% stop
+    - Field 2 (DO digital sensor): If DRY start irrigation, if WET stop
+    - Field 1 uses STATE1 (static 180°)
+    - Field 2 uses STATE2 (rotating 0-180°)
     """
     with state_lock:
         sensor1 = system_state['sensor1_moisture']
-        sensor2 = system_state['sensor2_moisture']
+        sensor2_is_dry = system_state['sensor2_dry']
         
-        # Check which sensors need emergency irrigation
+        # Check which sensors need irrigation
         sensor1_emergency = sensor1 < MOISTURE_THRESHOLD_LOW
-        sensor2_emergency = sensor2 < MOISTURE_THRESHOLD_LOW
         
         # Determine what action to take
         if sensor1_emergency:
-            # Sensor 1 is in emergency - Start pump AND servo STATE1 (static 180°)
+            # Sensor 1 is in emergency (<30%) - Start pump AND servo STATE1 (static 180°)
             system_state['pump_status'] = 'ON'
             system_state['servo_state'] = 'STATE1'
             system_state['field1_active'] = True
             system_state['field2_active'] = False  # Field 1 has priority
             
-        elif sensor2_emergency:
-            # Only Sensor 2 is in emergency - Start pump AND servo STATE2 (rotating)
+        elif sensor2_is_dry:
+            # Sensor 2 is DRY - Start pump AND servo STATE2 (rotating)
             system_state['pump_status'] = 'ON'
             system_state['servo_state'] = 'STATE2'
             system_state['field1_active'] = False
             system_state['field2_active'] = True
             
-        elif sensor1 >= MOISTURE_THRESHOLD_HIGH and sensor2 >= MOISTURE_THRESHOLD_HIGH:
-            # BOTH sensors above 80% - Turn OFF both pump and servo completely
+        elif sensor1 >= MOISTURE_THRESHOLD_HIGH and not sensor2_is_dry:
+            # Field 1 above 80% AND Field 2 is WET - Turn OFF both pump and servo completely
             system_state['pump_status'] = 'OFF'
             system_state['servo_state'] = 'IDLE'
             system_state['field1_active'] = False
@@ -244,8 +242,8 @@ def auto_control_logic():
             system_state['servo_state'] = 'IDLE'
             system_state['field1_active'] = False
             
-        elif system_state['field2_active'] and sensor2 >= MOISTURE_THRESHOLD_HIGH:
-            # Field 2 reached 80% - Turn OFF both pump and servo
+        elif system_state['field2_active'] and not sensor2_is_dry:
+            # Field 2 is now WET - Turn OFF both pump and servo
             system_state['pump_status'] = 'OFF'
             system_state['servo_state'] = 'IDLE'
             system_state['field2_active'] = False

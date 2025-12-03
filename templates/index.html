@@ -523,11 +523,9 @@
 
             <!-- Sensor 2 Card -->
             <div class="card">
-                <h2>📊 Field 2 - Sensor 2</h2>
-                <div class="sensor-value" id="sensor2Value">0%</div>
-                <div class="moisture-bar">
-                    <div class="moisture-fill" id="sensor2Bar" style="width: 0%"></div>
-                </div>
+                <h2>📊 Field 2 - DO Sensor</h2>
+                <div class="sensor-value" id="sensor2Value">WET</div>
+                <div class="sensor-label">Digital Moisture Sensor (Dry/Wet)</div>
                 <div class="sensor-label">Rotating Irrigation Field</div>
             </div>
 
@@ -709,11 +707,19 @@
                 
                 // Update sensor values
                 document.getElementById('sensor1Value').textContent = data.sensor1_moisture + '%';
-                document.getElementById('sensor2Value').textContent = data.sensor2_moisture + '%';
                 
-                // Update moisture bars
+                // Update sensor 2 - DO sensor shows DRY/WET
+                const sensor2Element = document.getElementById('sensor2Value');
+                if (data.sensor2_dry) {
+                    sensor2Element.textContent = '🔴 DRY';
+                    sensor2Element.style.color = '#ff4444';
+                } else {
+                    sensor2Element.textContent = '💧 WET';
+                    sensor2Element.style.color = '#4CAF50';
+                }
+                
+                // Update moisture bar for sensor 1 only
                 document.getElementById('sensor1Bar').style.width = data.sensor1_moisture + '%';
-                document.getElementById('sensor2Bar').style.width = data.sensor2_moisture + '%';
                 
                 // Update pump status
                 const pumpIndicator = document.getElementById('pumpIndicator');

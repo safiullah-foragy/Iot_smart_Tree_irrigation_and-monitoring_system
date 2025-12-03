@@ -7,9 +7,12 @@
 // CONFIGURATION - Modify these values
 // ========================================
 
-// WiFi Credentials
+// WiFi Credentials - Multiple networks (will try in order)
 const char* ssid = "TLE 512";
 const char* password = "TLE_Cse-19";
+
+const char* ssid2 = "SOFI";
+const char* password2 = "12345678";
 
 // Server URL - Your Render.com deployment
 const char* serverUrl = "https://iot-smart-tree-irrigation-and-monitoring.onrender.com";
@@ -51,8 +54,8 @@ Servo servoMotor;
 WiFiClientSecure wifiClient;
 
 // Sensor data
-int sensor1Value = 0;
-int sensor2Value = 0;
+int sensor1Value = 0;        // Analog sensor percentage (0-100%)
+bool sensor2Dry = false;     // Digital DO sensor: true=Dry, false=Wet
 bool fireDetected = false;
 
 // Command states
@@ -185,14 +188,17 @@ void loop() {
 // ========================================
 
 void connectToWiFi() {
-  Serial.print("[WIFI] Connecting to: ");
+  Serial.println("[WIFI] Attempting to connect to available networks...");
+  
+  // Try first network
+  Serial.print("[WIFI] Trying network 1: ");
   Serial.println(ssid);
   
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
     Serial.print(".");
     attempts++;
@@ -200,6 +206,37 @@ void connectToWiFi() {
   
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n[WIFI] ✓ Connected successfully!");
+    Serial.print("[WIFI] Network: ");
+    Serial.println(ssid);
+    Serial.print("[WIFI] IP Address: ");
+    Serial.println(WiFi.localIP());
+    Serial.print("[WIFI] Signal Strength: ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
+    Serial.print("[WIFI] MAC Address: ");
+    Serial.println(WiFi.macAddress());
+    Serial.println();
+    return;
+  }
+  
+  // Try second network if first failed
+  Serial.println("\n[WIFI] First network failed. Trying network 2...");
+  Serial.print("[WIFI] Trying network 2: ");
+  Serial.println(ssid2);
+  
+  WiFi.begin(ssid2, password2);
+  
+  attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n[WIFI] ✓ Connected successfully!");
+    Serial.print("[WIFI] Network: ");
+    Serial.println(ssid2);
     Serial.print("[WIFI] IP Address: ");
     Serial.println(WiFi.localIP());
     Serial.print("[WIFI] Signal Strength: ");
@@ -209,7 +246,7 @@ void connectToWiFi() {
     Serial.println(WiFi.macAddress());
     Serial.println();
   } else {
-    Serial.println("\n[WIFI] ✗ Connection failed!");
+    Serial.println("\n[WIFI] ✗ Both networks failed!");
     Serial.println("[ERROR] Check WiFi credentials and signal strength");
     Serial.println("[INFO] Retrying in 5 seconds...\n");
     delay(5000);
@@ -232,7 +269,8 @@ void readSensors() {
   sensor1Value = map(rawValue1, SENSOR_DRY_VALUE, SENSOR_WET_VALUE, 0, 100);
   sensor1Value = constrain(sensor1Value, 0, 100);
   
-  // Read moisture sensor 2 (Digital - Field 2)
+  // Read moisture sensor 2 (Digital DO sensor - Field 2)
+  // Digital sensor: HIGH = Dry soil, LOW = Wet soil
   // Average multiple readings for stability
   int highCount = 0;
   for (int i = 0; i < 10; i++) {
@@ -242,10 +280,8 @@ void readSensors() {
     delay(5);
   }
   
-  // Calculate percentage based on how many times it read HIGH
-  // More HIGH readings = drier soil (lower moisture)
-  sensor2Value = map(highCount, 10, 0, 0, 100);  // Inverted: all HIGH=dry=0%, all LOW=wet=100%
-  sensor2Value = constrain(sensor2Value, 0, 100);
+  // Determine dry/wet state: if more than 5 out of 10 readings are HIGH, soil is dry
+  sensor2Dry = (highCount > 5);
   
   // Read flame sensor (Digital - Active LOW: LOW = Fire detected)
   fireDetected = (digitalRead(FLAME_SENSOR_PIN) == LOW);
@@ -254,16 +290,16 @@ void readSensors() {
   Serial.println("┌─────────────────────────────────────┐");
   Serial.println("│       SENSOR READINGS               │");
   Serial.println("├─────────────────────────────────────┤");
-  Serial.print("│ Field 1 (Sensor 1): ");
+  Serial.print("│ Field 1 (Analog): ");
   Serial.print(sensor1Value);
   Serial.print("% (Raw: ");
   Serial.print(rawValue1);
-  Serial.println(")  │");
-  Serial.print("│ Field 2 (Sensor 2): ");
-  Serial.print(sensor2Value);
-  Serial.print("% (HIGH: ");
+  Serial.println(")     │");
+  Serial.print("│ Field 2 (DO Sensor): ");
+  Serial.print(sensor2Dry ? "DRY" : "WET");
+  Serial.print(" (HIGH: ");
   Serial.print(highCount);
-  Serial.println("/10) │");
+  Serial.println("/10)  │");
   Serial.print("│ Fire Detected: ");
   Serial.print(fireDetected ? "YES ⚠️" : "NO ✓");
   Serial.println("      │");
@@ -290,7 +326,7 @@ void sendSensorData() {
   // Create JSON payload
   StaticJsonDocument<200> doc;
   doc["sensor1"] = sensor1Value;
-  doc["sensor2"] = sensor2Value;
+  doc["sensor2_dry"] = sensor2Dry;
   doc["fire_detected"] = fireDetected;
   
   String jsonString;
